@@ -92,8 +92,8 @@ out.arima
 pacf(out.arima$residuals)
 
 
-out.arima2<-arima(nyc_taxi_agg4$rides, xreg=cbind(nyc_taxi_agg4$cab), c(3,0,5),
-                  seasonal = list(order = c(6,0,6), period=7))
+out.arima2<-arima(nyc_taxi_agg4$rides, xreg=cbind(nyc_taxi_agg4$cab), c(6,0,0),
+                  seasonal = list(order = c(4,0,4), period=7))
 out.arima2
 acf(out.arima2$residuals)
 pacf(out.arima2$residuals)
@@ -108,5 +108,146 @@ abline(-3,0,col="red")
 
 checkresiduals(out.arima2)
 checkresiduals(mod1.step)
+
+
+yellowcab<-nyc_taxi_agg4[which(nyc_taxi_agg4$type=="yellow"),]
+greencab<-nyc_taxi_agg4[which(nyc_taxi_agg4$type=="green"),]
+fhvcab<-nyc_taxi_agg4[which(nyc_taxi_agg4$type=="fhv"),]
+
+plot(yellowcab$date,yellowcab$rides)
+
+### Yellow Cab ARIMA Modeling
+plot(yellowcab$date,yellowcab$rides)
+
+yellowcab.arima<-arima(yellowcab$rides, c(8,0,2), 
+                       seasonal = list(order = c(4,0,4), period=7)) 
+pacf(yellowcab.arima$residuals)
+checkresiduals(yellowcab.arima)
+
+### Yellow Cab 2018 180 day prediction
+
+yellowpreds<-predict(yellowcab.arima, n.ahead = 180)
+
+upperyellow<-yellowpreds$pred + 1.96*yellowpreds$se
+loweryellow<-yellowpreds$pred - 1.96*yellowpreds$se
+
+yellowpreds2<-yellowpreds$pred[1:180]
+
+pred_dates<-seq(as.Date("2018-01-01"), by = 1, length.out = 180)                             
+
+
+plotting_data<-c()
+plotting_data<-cbind.data.frame(upperyellow,as.Date(pred_dates))
+plotting_data<-cbind.data.frame(plotting_data,loweryellow)
+plotting_data<-cbind.data.frame(plotting_data,yellowpreds2)
+names(plotting_data)[2]="dates"
+
+plotting_data$week<-as.Date(format(plotting_data$dates+1,"%Y-%W-1"),"%Y-%W-%u")-1
+plotting_data2<-aggregate(data=plotting_data, cbind(upperyellow, loweryellow, yellowpreds2) ~ week, FUN=sum)
+
+
+
+ggplot(plotting_data2, aes(x = week)) + 
+  geom_line(aes(y = upperyellow), colour="red", size=1) + 
+  geom_line(aes(y = yellowpreds2), colour = "gold3", size=1) + 
+  geom_line(aes(y = loweryellow), colour="red", size=1) + 
+  ylab(label="Rides") + 
+  xlab("Weekly")+ scale_y_continuous(labels = scales::comma)+
+  ggtitle("Weekly Forecast for 2018's First Six Months - Yellow Cab Taxis")
+
+
+
+plot(greencab$date,greencab$rides)
+acf(greencab$rides)
+pacf(greencab$rides)
+### Green Cab ARIMA Modeling
+plot(greencab$date,greencab$rides)
+
+auto.arima(greencab$rides)
+
+
+greencab.arima<-arima(greencab$rides, c(6,0,0), 
+                       seasonal = list(order = c(2,0,3), period=7)) 
+pacf(greencab.arima$residuals)
+checkresiduals(greencab.arima)
+
+
+### green Cab 2018 180 day prediction
+
+greenpreds<-predict(greencab.arima, n.ahead = 180)
+
+uppergreen<-greenpreds$pred + 1.96*greenpreds$se
+lowergreen<-greenpreds$pred - 1.96*greenpreds$se
+
+greenpreds2<-greenpreds$pred[1:180]
+
+pred_dates<-seq(as.Date("2018-01-01"), by = 1, length.out = 180)                             
+
+
+plotting_data<-c()
+plotting_data<-cbind.data.frame(uppergreen,as.Date(pred_dates))
+plotting_data<-cbind.data.frame(plotting_data,lowergreen)
+plotting_data<-cbind.data.frame(plotting_data,greenpreds2)
+names(plotting_data)[2]="dates"
+
+plotting_data$week<-as.Date(format(plotting_data$dates+1,"%Y-%W-1"),"%Y-%W-%u")-1
+plotting_data2<-aggregate(data=plotting_data, cbind(uppergreen, lowergreen, greenpreds2) ~ week, FUN=sum)
+
+                          
+                          
+ggplot(plotting_data2, aes(x = week)) + 
+  geom_line(aes(y = uppergreen), colour="red", size=1) + 
+  geom_line(aes(y = greenpreds2), colour = "green", size=1) + 
+  geom_line(aes(y = lowergreen), colour="red", size=1) + 
+  ylab(label="Rides") + 
+  xlab("Weekly")+ scale_y_continuous(labels = scales::comma)+
+  ggtitle("Weekly Forecast for 2018's First Six Months - Green Cab Taxis")
+
+
+### FHV ARIMA MODELING
+plot(fhvcab$date,fhvcab$rides)
+fhvcab$outliers<-0; fhvcab$outliers[which(fhvcab$rides<=200000 & fhvcab$date >='2016-01-01' )] <-1
+fhvcab$outliers[which(fhvcab$rides<=300000 & fhvcab$date >='2017-01-01' )] <-1
+
+fhvcab.arima<-arima(fhvcab$rides, c(6,0,0), xreg = c(fhvcab$outliers), 
+                    seasonal = list(order = c(4,0,4), period=7))
+pacf(fhvcab.arima$residuals)
+checkresiduals(fhvcab.arima)
+
+### FHV Predicting 180 into 2018
+fhvoutliers<- rep(0,180)
+fhvpreds<-predict(fhvcab.arima,newxreg =  fhvoutliers, n.ahead = 180)
+upperfhv<-fhvpreds$pred + 1.96*fhvpreds$se
+lowerfhv<-fhvpreds$pred - 1.96*fhvpreds$se
+fhvpreds2<-fhvpreds$pred[1:180]
+pred_dates<-seq(as.Date("2018-01-01"), by = 1, length.out = 180)                             
+names(plotting_data)[2]="dates"
+
+plotting_data<-c()
+plotting_data<-cbind.data.frame(upperfhv,as.Date(pred_dates))
+plotting_data<-cbind.data.frame(plotting_data,lowerfhv)
+plotting_data<-cbind.data.frame(plotting_data,fhvpreds2)
+names(plotting_data)[2]="dates"
+
+plotting_data$week<-as.Date(format(plotting_data$dates+1,"%Y-%W-1"),"%Y-%W-%u")-1
+plotting_data2<-aggregate(data=plotting_data, cbind(upperfhv, lowerfhv, fhvpreds2) ~ week, FUN=sum)
+
+
+
+ggplot(plotting_data2, aes(x = week)) + 
+  geom_line(aes(y = upperfhv), colour="red", size=1) + 
+  geom_line(aes(y = fhvpreds2), colour = "black", size=1) + 
+  geom_line(aes(y = lowerfhv), colour="red", size=1) + 
+  ylab(label="Rides") + 
+  xlab("Weekly")+ scale_y_continuous(labels = scales::comma)+
+  ggtitle("Weekly Forecast for 2018's First Six Months - FHV")
+
+qqnorm((out.arima2$residuals-mean(out.arima2$residuals))/sd(out.arima2$residuals), pch = 1, frame = FALSE)
+qqline((out.arima2$residuals-mean(out.arima2$residuals))/sd(out.arima2$residuals), col = "steelblue", lwd = 2)
+plot(nyc_taxi_agg4$date , (out.arima2$residuals-mean(out.arima2$residuals))/sd(out.arima2$residuals),
+     main="Date vs Standardized Residuals for Time Series + Cab Type Model" , xlab="Date", ylab="Standardized Residuals")
+abline(0,0)
+abline(3,0,col="red")
+abline(-3,0,col="red")
 
         
